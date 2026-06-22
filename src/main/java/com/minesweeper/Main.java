@@ -2,25 +2,21 @@ package com.minesweeper;
 
 import org.lwjgl.*;
 import org.lwjgl.sdl.*;
+
 import static org.lwjgl.sdl.SDLError.*;
-
-
 import static org.lwjgl.sdl.SDLRender.*;
 import static org.lwjgl.sdl.SDLSurface.*;
 import static org.lwjgl.sdl.SDLVideo.*;
 import static org.lwjgl.sdl.SDLEvents.*;
 import static org.lwjgl.sdl.SDLInit.*;
+import static org.lwjgl.sdl.SDLMouse.*;
+import static org.lwjgl.sdl.SDLTimer.*;
 import static org.lwjgl.system.MemoryUtil.*;
 
 import java.io.File;
-import java.io.InputStream;
-import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
-
-import javax.management.openmbean.OpenDataException;
-
+import java.util.ArrayList;
 
 public class Main {
     public static void main(String[] args) {
@@ -46,6 +42,7 @@ public class Main {
 
     final static int GRID_SIZE = 16, TILE_SIZE = 32;
     final static int WIDTH = TILE_SIZE*GRID_SIZE, HEIGHT = TILE_SIZE*GRID_SIZE;
+    final static int MINECOUNT = 20;
     
     static PointerBuffer window, renderer;
     static long ren, win;
@@ -55,6 +52,11 @@ public class Main {
 
     static int[][] viewGrid = new int[GRID_SIZE][GRID_SIZE];
     static int[][] hiddenGrid = new int[GRID_SIZE][GRID_SIZE];
+
+    static ArrayList<Integer> cascadeQueueX = new ArrayList<>();
+    static ArrayList<Integer> cascadeQueueY = new ArrayList<>();
+
+    static float mouseX, mouseY;
 
     public static void init(){
         SDL_Init(SDL_INIT_VIDEO);
@@ -67,8 +69,8 @@ public class Main {
         ren = renderer.get();
         win = window.get();
 
-        viewGrid = fill(1, GRID_SIZE);
-        fillMines(5);
+        viewGrid = fill(0, GRID_SIZE);
+        fillMines(MINECOUNT);
         populateGrid();
 
         
@@ -81,16 +83,51 @@ public class Main {
 
         printIntArray(viewGrid);
         printIntArray(hiddenGrid);
+
+        long now = SDL_GetPerformanceCounter();
+        long last;
+        double deltaTime = 0;
   
         while(!quit){
             SDL_UpdateWindowSurface(win);
+            last = now;
+            now = SDL_GetPerformanceCounter();
+            deltaTime = (double)((now-last)*1000 / (double)SDL_GetPerformanceFrequency());
+
             while(SDL_PollEvent(event)){
                 switch (event.type()) {
                     case SDL_EVENT_QUIT:
                         quit = true;
                         break;
+                    case SDL_EVENT_MOUSE_BUTTON_DOWN:
+                        if(event.button().button() == SDL_BUTTON_LEFT){
+                            mouseX = event.motion().x();
+                            mouseY = event.motion().y();
+                            int gridX = (int)Math.floor(mouseY/TILE_SIZE);
+                            int gridY = (int)Math.floor(mouseX/TILE_SIZE);
+                            if(gridX > 0 && gridX < GRID_SIZE && gridY > 0 && gridY < GRID_SIZE){
+                                cascadeQueueX.add(gridX);
+                                cascadeQueueY.add(gridY);
+                            }
+                            System.out.printf("click x: %f, y: %f", mouseX, mouseY);
+                        }   
+                        break;
+                    /*case SDL_EVENT_MOUSE_MOTION:
+                        mouseX = event.motion().xrel();
+                        mouseY = event.motion().yrel();
+                        break; */
                 }
             }   
+            
+            if(now % 1000 == 0){
+                int initialLength = cascadeQueueX.size();
+                for(int i = 0; i < initialLength; i++){
+                    cascadeTiles(cascadeQueueX.get(i), cascadeQueueY.get(i));
+                }
+                cascadeQueueX = removeRange(cascadeQueueX, 0, initialLength);
+                cascadeQueueY = removeRange(cascadeQueueY, 0, initialLength);
+            }
+            System.out.println("queue size: " + cascadeQueueX.size());
 
             SDL_RenderClear(ren);
             size.set(0,0,TILE_SIZE,TILE_SIZE);
@@ -202,6 +239,21 @@ public class Main {
         return count;
     }
 
+    static ArrayList<Integer> removeRange(ArrayList<Integer> a, int s, int e){
+        ArrayList<Integer> out = new ArrayList<>();
+        if(s > 0){
+            for(int i = 0; i < s; i++){
+                out.add(a.get(i));
+            }
+        }
+
+        for(int i = e; i < a.size(); i++){
+                out.add(a.get(i));
+        }
+
+        return out;
+    }
+
     static void printIntArray(int[][] a){
         for(int[] b: a){
             for(int n: b){
@@ -210,5 +262,32 @@ public class Main {
             System.out.printf("\n");
         }
         System.out.printf("\n \n");
+    }
+
+    static void cascadeTiles(int x, int y){
+        viewGrid[x][y] = 1;
+        int mineCount = 0;
+        for(int y2 = y-1; y2 <= (y+1); y2++){
+            for(int x2 = x-1; x2 <= (x+1); x2++){
+                if(x2 >= 0 && x2 < GRID_SIZE && y2 >= 0 && y2 < GRID_SIZE ){
+                    if(x2 == x && y2 == y) continue;
+
+                    if(hiddenGrid[x2][y2] == type.MINE.ordinal()){
+                        mineCount++;
+                    }
+                    
+                }
+            }
+        }
+        if(mineCount == 0){
+            int[] xTiles = {x-1, x, x+1, x-1, x+1, x-1, x, x+1};
+            int[] yTiles = {y-1, y-1, y-1, y, y, y+1, y+1, y+1};
+            for(int i = 0; i < xTiles.length; i++){
+                if(xTiles[i] > 0 && xTiles[i] < GRID_SIZE && yTiles[i] > 0 && yTiles[i] < GRID_SIZE){
+                    cascadeQueueX.add(xTiles[i]);
+                    cascadeQueueY.add(yTiles[i]);
+                }
+            }
+        }
     }
 }
