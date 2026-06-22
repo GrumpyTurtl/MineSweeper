@@ -76,6 +76,9 @@ public class Main {
         SDL_Texture[] textures = makeTextures();
         SDL_FRect size = SDL_FRect.create();
 
+
+        
+
         SDL_Event event = SDL_Event.calloc();
         boolean quit = false;
         boolean start = false;
@@ -118,7 +121,7 @@ public class Main {
                                     viewGrid[gridX][gridY] = 0;
                                 }
                             }
-                            System.out.printf("click x: %f, y: %f", mouseX, mouseY);
+                            System.out.printf("left click x: %f, y: %f \n", mouseX, mouseY);
                         }else if(event.button().button() == SDL_BUTTON_RIGHT){
                             mouseX = event.motion().x();
                             mouseY = event.motion().y();
@@ -132,6 +135,7 @@ public class Main {
                                     viewGrid[gridX][gridY] = 0;
                                 }
                             }
+                            System.out.printf("right click x: %f, y: %f \n", mouseX, mouseY);
                         }  
                         break;
                 }
@@ -145,7 +149,6 @@ public class Main {
                 cascadeQueueX = removeRange(cascadeQueueX, 0, initialLength);
                 cascadeQueueY = removeRange(cascadeQueueY, 0, initialLength);
             }
-            System.out.println("queue size: " + cascadeQueueX.size());
 
             SDL_RenderClear(ren);
             size.set(0,0,TILE_SIZE,TILE_SIZE);
@@ -154,6 +157,8 @@ public class Main {
                     int texValue = (viewGrid[x][y] == 1) ? hiddenGrid[x][y] : type.BLANK.ordinal();
                     texValue = (viewGrid[x][y] == type.FLAG.ordinal()) ? viewGrid[x][y] : texValue;
                     SDL_RenderTexture(ren, textures[texValue], null, size);
+
+                    if(texValue == type.MINE.ordinal()) quit = true;
 
                     size.x(size.x() + TILE_SIZE);
                     if(size.x() >= GRID_SIZE*TILE_SIZE){
@@ -220,7 +225,7 @@ public class Main {
         for(int i = 0; i < mineCount; i++){
             int x = randomInt(0, GRID_SIZE-1);
             int y = randomInt(0, GRID_SIZE-1);
-            if(hiddenGrid[x][y] == type.MINE.ordinal() || (x == safeX && y == safeY)){
+            if(hiddenGrid[x][y] == type.MINE.ordinal() || (x >= safeX-1 && x <= safeX+1 && y >= safeY-1 && y <= safeY+1)){
                 i--;
             }else{
                 hiddenGrid[x][y] = type.MINE.ordinal();
