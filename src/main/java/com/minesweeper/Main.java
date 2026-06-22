@@ -70,8 +70,7 @@ public class Main {
         win = window.get();
 
         viewGrid = fill(0, GRID_SIZE);
-        fillMines(MINECOUNT);
-        populateGrid();
+
 
         
         SDL_Texture[] textures = makeTextures();
@@ -79,7 +78,7 @@ public class Main {
 
         SDL_Event event = SDL_Event.calloc();
         boolean quit = false;
-
+        boolean start = false;
 
         printIntArray(viewGrid);
         printIntArray(hiddenGrid);
@@ -105,21 +104,40 @@ public class Main {
                             mouseY = event.motion().y();
                             int gridX = (int)Math.floor(mouseY/TILE_SIZE);
                             int gridY = (int)Math.floor(mouseX/TILE_SIZE);
-                            if(gridX > 0 && gridX < GRID_SIZE && gridY > 0 && gridY < GRID_SIZE){
-                                cascadeQueueX.add(gridX);
-                                cascadeQueueY.add(gridY);
+                            if(gridX >= 0 && gridX < GRID_SIZE && gridY >= 0 && gridY < GRID_SIZE){
+                                if(!start) { 
+                                    start = true;         
+                                    fillMines(MINECOUNT, gridX, gridY);
+                                    populateGrid();
+                                }
+
+                                if(viewGrid[gridX][gridY] == 0){
+                                    cascadeQueueX.add(gridX);
+                                    cascadeQueueY.add(gridY);
+                                }else if(viewGrid[gridX][gridY] == type.FLAG.ordinal()){
+                                    viewGrid[gridX][gridY] = 0;
+                                }
                             }
                             System.out.printf("click x: %f, y: %f", mouseX, mouseY);
-                        }   
+                        }else if(event.button().button() == SDL_BUTTON_RIGHT){
+                            mouseX = event.motion().x();
+                            mouseY = event.motion().y();
+                            int gridX = (int)Math.floor(mouseY/TILE_SIZE);
+                            int gridY = (int)Math.floor(mouseX/TILE_SIZE);
+                            if(gridX >= 0 && gridX < GRID_SIZE && gridY >= 0 && gridY < GRID_SIZE){
+
+                                if(viewGrid[gridX][gridY] == 0){
+                                    viewGrid[gridX][gridY] = type.FLAG.ordinal(); 
+                                }else if(viewGrid[gridX][gridY] == type.FLAG.ordinal()){
+                                    viewGrid[gridX][gridY] = 0;
+                                }
+                            }
+                        }  
                         break;
-                    /*case SDL_EVENT_MOUSE_MOTION:
-                        mouseX = event.motion().xrel();
-                        mouseY = event.motion().yrel();
-                        break; */
                 }
             }   
             
-            if(now % 1000 == 0){
+            if(now % 500 == 0){
                 int initialLength = cascadeQueueX.size();
                 for(int i = 0; i < initialLength; i++){
                     cascadeTiles(cascadeQueueX.get(i), cascadeQueueY.get(i));
@@ -134,6 +152,7 @@ public class Main {
             for(int x = 0; x < GRID_SIZE; x++){
                 for(int y = 0; y < GRID_SIZE; y++){
                     int texValue = (viewGrid[x][y] == 1) ? hiddenGrid[x][y] : type.BLANK.ordinal();
+                    texValue = (viewGrid[x][y] == type.FLAG.ordinal()) ? viewGrid[x][y] : texValue;
                     SDL_RenderTexture(ren, textures[texValue], null, size);
 
                     size.x(size.x() + TILE_SIZE);
@@ -197,11 +216,11 @@ public class Main {
         return out;
     }
 
-    static void fillMines(int mineCount){
+    static void fillMines(int mineCount, int safeX, int safeY){
         for(int i = 0; i < mineCount; i++){
             int x = randomInt(0, GRID_SIZE-1);
             int y = randomInt(0, GRID_SIZE-1);
-            if(hiddenGrid[x][y] == type.MINE.ordinal()){
+            if(hiddenGrid[x][y] == type.MINE.ordinal() || (x == safeX && y == safeY)){
                 i--;
             }else{
                 hiddenGrid[x][y] = type.MINE.ordinal();
@@ -284,6 +303,7 @@ public class Main {
             int[] yTiles = {y-1, y-1, y-1, y, y, y+1, y+1, y+1};
             for(int i = 0; i < xTiles.length; i++){
                 if(xTiles[i] > 0 && xTiles[i] < GRID_SIZE && yTiles[i] > 0 && yTiles[i] < GRID_SIZE){
+                    if(viewGrid[xTiles[i]][yTiles[i]] == 1) continue;   
                     cascadeQueueX.add(xTiles[i]);
                     cascadeQueueY.add(yTiles[i]);
                 }
