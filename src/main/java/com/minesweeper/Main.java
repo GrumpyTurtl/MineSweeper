@@ -3,6 +3,7 @@ package com.minesweeper;
 import org.lwjgl.*;
 import org.lwjgl.sdl.*;
 
+
 import static org.lwjgl.sdl.SDLError.*;
 import static org.lwjgl.sdl.SDLRender.*;
 import static org.lwjgl.sdl.SDLSurface.*;
@@ -18,9 +19,9 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 
+
 public class Main {
     public static void main(String[] args) {
-        System.out.println("Hello World!");
         init();
     }
 
@@ -41,8 +42,8 @@ public class Main {
     }
 
     final static int GRID_SIZE = 16, TILE_SIZE = 32;
-    final static int WIDTH = TILE_SIZE*GRID_SIZE, HEIGHT = TILE_SIZE*GRID_SIZE;
-    final static int MINECOUNT = 20;
+    final static int WIDTH = TILE_SIZE*GRID_SIZE, HEIGHT = TILE_SIZE*GRID_SIZE+32;
+    static int MINECOUNT = 20;
     
     static PointerBuffer window, renderer;
     static long ren, win;
@@ -53,15 +54,22 @@ public class Main {
     static int[][] viewGrid = new int[GRID_SIZE][GRID_SIZE];
     static int[][] hiddenGrid = new int[GRID_SIZE][GRID_SIZE];
 
+    static int safeTiles = 0;
+    static int flaggedMines = 0;
+
     static ArrayList<Integer> cascadeQueueX = new ArrayList<>();
     static ArrayList<Integer> cascadeQueueY = new ArrayList<>();
-
+    
     static float mouseX, mouseY;
+    static int timer = 0;
+    static SDL_TimerCallbackI callback;
+  
 
     public static void init(){
         SDL_Init(SDL_INIT_VIDEO);
         window = PointerBuffer.allocateDirect(16);
         renderer = PointerBuffer.allocateDirect(16);
+
 
         if(!SDL_CreateWindowAndRenderer("Minesweeper", WIDTH, HEIGHT, NULL, window, renderer)){
             System.out.println("Couldnt create window");
@@ -69,46 +77,48 @@ public class Main {
         ren = renderer.get();
         win = window.get();
 
+        SDL_Rect charSize = SDL_Rect.create().set(4,2,12,17);
+        FontRender font = new FontRender("font", charSize, ren);
+        font.yPad = 3;
+        font.xPad = 0;
+
         viewGrid = fill(0, GRID_SIZE);
-
-
         
         SDL_Texture[] textures = makeTextures();
         SDL_FRect size = SDL_FRect.create();
 
 
-        
-
         SDL_Event event = SDL_Event.calloc();
         boolean quit = false;
         boolean start = false;
 
-        printIntArray(viewGrid);
-        printIntArray(hiddenGrid);
+        
+        callback = (userdata, timerID, interval) -> {
+            timer += 1;
+            SDL_AddTimer(1000, callback, 0);
+            return 0; 
+        };
 
-        long now = SDL_GetPerformanceCounter();
-        long last;
-        double deltaTime = 0;
+        SDL_AddTimer(1000, callback, 0);
+        
+        //double deltaTime = 0;
   
         while(!quit){
             SDL_UpdateWindowSurface(win);
-            last = now;
-            now = SDL_GetPerformanceCounter();
-            deltaTime = (double)((now-last)*1000 / (double)SDL_GetPerformanceFrequency());
+            
+            //deltaTime = (double)((now-last)*1000 / (double)SDL_GetPerformanceFrequency());
 
             while(SDL_PollEvent(event)){
                 switch (event.type()) {
-                    case SDL_EVENT_QUIT:
-                        quit = true;
-                        break;
-                    case SDL_EVENT_MOUSE_BUTTON_DOWN:
+                    case SDL_EVENT_QUIT -> quit = true;
+                    case SDL_EVENT_MOUSE_BUTTON_DOWN -> {
                         if(event.button().button() == SDL_BUTTON_LEFT){
                             mouseX = event.motion().x();
                             mouseY = event.motion().y();
                             int gridX = (int)Math.floor(mouseY/TILE_SIZE);
                             int gridY = (int)Math.floor(mouseX/TILE_SIZE);
                             if(gridX >= 0 && gridX < GRID_SIZE && gridY >= 0 && gridY < GRID_SIZE){
-                                if(!start) { 
+                                if(!start) {
                                     start = true;         
                                     fillMines(MINECOUNT, gridX, gridY);
                                     populateGrid();
@@ -121,7 +131,7 @@ public class Main {
                                     viewGrid[gridX][gridY] = 0;
                                 }
                             }
-                            System.out.printf("left click x: %f, y: %f \n", mouseX, mouseY);
+                            //System.out.printf("left click x: %f, y: %f \n", mouseX, mouseY);
                         }else if(event.button().button() == SDL_BUTTON_RIGHT){
                             mouseX = event.motion().x();
                             mouseY = event.motion().y();
@@ -135,13 +145,12 @@ public class Main {
                                     viewGrid[gridX][gridY] = 0;
                                 }
                             }
-                            System.out.printf("right click x: %f, y: %f \n", mouseX, mouseY);
-                        }  
-                        break;
+                            //System.out.printf("right click x: %f, y: %f \n", mouseX, mouseY);
+                        }
+                    }
                 }
             }   
-            
-            if(now % 500 == 0){
+            if(SDL_GetPerformanceCounter() % 500 <= 10){
                 int initialLength = cascadeQueueX.size();
                 for(int i = 0; i < initialLength; i++){
                     cascadeTiles(cascadeQueueX.get(i), cascadeQueueY.get(i));
@@ -150,8 +159,11 @@ public class Main {
                 cascadeQueueY = removeRange(cascadeQueueY, 0, initialLength);
             }
 
+            SDL_SetRenderDrawColor( ren, (byte)192, (byte)192, (byte)192, (byte)255);
             SDL_RenderClear(ren);
-            size.set(0,0,TILE_SIZE,TILE_SIZE);
+            size.set(0,32,TILE_SIZE,TILE_SIZE);
+            safeTiles = 0;
+            flaggedMines = 0;
             for(int x = 0; x < GRID_SIZE; x++){
                 for(int y = 0; y < GRID_SIZE; y++){
                     int texValue = (viewGrid[x][y] == 1) ? hiddenGrid[x][y] : type.BLANK.ordinal();
@@ -159,6 +171,16 @@ public class Main {
                     SDL_RenderTexture(ren, textures[texValue], null, size);
 
                     if(texValue == type.MINE.ordinal()) quit = true;
+                    if(hiddenGrid[x][y] != type.MINE.ordinal() && viewGrid[x][y] == 0) safeTiles++;
+                    if(hiddenGrid[x][y] == type.MINE.ordinal() && viewGrid[x][y] == type.FLAG.ordinal()) flaggedMines++;
+
+                    String str = "Timer " + timer;
+                    font.RenderString(16,8,str);
+
+                    SDL_FRect pos = SDL_FRect.create(), cut = SDL_FRect.create();
+                    pos.set(WIDTH-TILE_SIZE*2, 0, TILE_SIZE, TILE_SIZE);
+                    cut.set(-2,-2,TILE_SIZE-2, TILE_SIZE-2);
+                    SDL_RenderTexture(ren, textures[type.FLAG.ordinal()], cut, pos);
 
                     size.x(size.x() + TILE_SIZE);
                     if(size.x() >= GRID_SIZE*TILE_SIZE){
@@ -166,6 +188,10 @@ public class Main {
                         size.y(size.y() + TILE_SIZE);
                     }
                 }
+            }
+
+            if(flaggedMines == MINECOUNT || safeTiles == 0){
+                System.out.println("you win!");
             }
             SDL_RenderPresent(ren);
         }
@@ -203,7 +229,7 @@ public class Main {
                 }       
 
             }catch(URISyntaxException e){
-                e.printStackTrace();
+                System.out.println("error loading Texture: " + e);
             }
         }
 
@@ -278,7 +304,7 @@ public class Main {
         return out;
     }
 
-    static void printIntArray(int[][] a){
+    /*  static void printIntArray(int[][] a){
         for(int[] b: a){
             for(int n: b){
                 System.out.printf("%d ", n);
@@ -286,11 +312,11 @@ public class Main {
             System.out.printf("\n");
         }
         System.out.printf("\n \n");
-    }
+    }*/
 
     static void cascadeTiles(int x, int y){
         viewGrid[x][y] = 1;
-        int mineCount = 0;
+        /*int mineCount = 0;
         for(int y2 = y-1; y2 <= (y+1); y2++){
             for(int x2 = x-1; x2 <= (x+1); x2++){
                 if(x2 >= 0 && x2 < GRID_SIZE && y2 >= 0 && y2 < GRID_SIZE ){
@@ -302,12 +328,13 @@ public class Main {
                     
                 }
             }
-        }
+        }*/
+       int mineCount = checkSurrounding(x,y);
         if(mineCount == 0){
             int[] xTiles = {x-1, x, x+1, x-1, x+1, x-1, x, x+1};
             int[] yTiles = {y-1, y-1, y-1, y, y, y+1, y+1, y+1};
             for(int i = 0; i < xTiles.length; i++){
-                if(xTiles[i] > 0 && xTiles[i] < GRID_SIZE && yTiles[i] > 0 && yTiles[i] < GRID_SIZE){
+                if(xTiles[i] >= 0 && xTiles[i] < GRID_SIZE && yTiles[i] >= 0 && yTiles[i] < GRID_SIZE){
                     if(viewGrid[xTiles[i]][yTiles[i]] == 1) continue;   
                     cascadeQueueX.add(xTiles[i]);
                     cascadeQueueY.add(yTiles[i]);
