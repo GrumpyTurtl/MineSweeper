@@ -18,6 +18,7 @@ class FontRender {
     String[] format = {"ABCDEFGHIJKLM", "NPOQRSTUVWXYZ", "abcdefghijklm", "nopqrstuvwxyz", "1234567890"};
     SDL_Rect charSize;
     int xPad = 0, yPad = 0;
+    int scale = 1;
 
     public FontRender(String image, SDL_Rect size, long renderer){
         ren = renderer;
@@ -57,12 +58,12 @@ class FontRender {
         for(int i = 0; i < s.length(); i++){
             if(i+1 < s.length() && s.substring(i, i+1).equals("\n")){
                 penX = x;
-                penY += charSize.h();
+                penY += charSize.h()*scale;
             }else{
                 if(RenderChar(penX, penY, s.charAt(i))){
-                    penX += charSize.w()/2;
+                    penX += charSize.w()*scale/2;
                 }else{
-                    penX += charSize.w();
+                    penX += charSize.w()*scale;
                 }
             }
         }
@@ -71,7 +72,7 @@ class FontRender {
     public boolean RenderChar(int x, int y, char c){
         SDL_FRect pos = SDL_FRect.create();
         SDL_FRect cut = SDL_FRect.create();
-        pos.set(x, y, charSize.w(), charSize.h());
+        pos.set(x, y, charSize.w()*scale, charSize.h()*scale);
 
         /*if(format[0].indexOf(c) >= 0){
             cut.set(format[0].indexOf(c)*(charSize.w()+xPad), yPad, charSize.w(), charSize.h());

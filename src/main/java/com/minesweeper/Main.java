@@ -6,6 +6,7 @@ import org.lwjgl.sdl.*;
 
 import static org.lwjgl.sdl.SDLError.*;
 import static org.lwjgl.sdl.SDLRender.*;
+import static org.lwjgl.sdl.SDLBlendMode.*;
 import static org.lwjgl.sdl.SDLSurface.*;
 import static org.lwjgl.sdl.SDLVideo.*;
 import static org.lwjgl.sdl.SDLEvents.*;
@@ -18,6 +19,14 @@ import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+
+
+
+class Button{
+    Button(int x, int y, int w, int h, String str){
+
+    }
+}
 
 
 public class Main {
@@ -44,7 +53,7 @@ public class Main {
     final static int GRID_SIZE = 16, TILE_SIZE = 32;
     final static int WIDTH = TILE_SIZE*GRID_SIZE, HEIGHT = TILE_SIZE*GRID_SIZE+32;
     final static int CASCADING_TILE_SPEED = 20;
-    static int MINECOUNT = 20;
+    final static int MINECOUNT = 20;
     
     static PointerBuffer window, renderer;
     static long ren, win;
@@ -57,13 +66,16 @@ public class Main {
 
     static int safeTiles = 0;
     static int flaggedMines = 0;
+    static int flagsLeft = MINECOUNT;
 
     static ArrayList<Integer> cascadeQueueX = new ArrayList<>();
     static ArrayList<Integer> cascadeQueueY = new ArrayList<>();
     
     static float mouseX, mouseY;
     static int timer = 0;
+    static boolean timerStop = false;
     static SDL_TimerCallbackI callback;
+    static boolean gameOver = false;
   
 
     public static void init(){
@@ -95,8 +107,10 @@ public class Main {
 
         
         callback = (userdata, timerID, interval) -> {
-            timer += 1;
-            SDL_AddTimer(1000, callback, 0);
+            if(!timerStop){
+                timer += 1;
+                SDL_AddTimer(1000, callback, 0);
+            }
             return 0; 
         };
 
@@ -119,7 +133,7 @@ public class Main {
                 switch (event.type()) {
                     case SDL_EVENT_QUIT -> quit = true;
                     case SDL_EVENT_MOUSE_BUTTON_DOWN -> {
-                        if(event.button().button() == SDL_BUTTON_LEFT){
+                        if(event.button().button() == SDL_BUTTON_LEFT && !gameOver){
                             mouseX = event.motion().x();
                             mouseY = event.motion().y();
                             int gridX = (int)Math.floor(mouseY/TILE_SIZE)-1;
@@ -139,17 +153,18 @@ public class Main {
                                 }
                             }
                             //System.out.printf("left click x: %f, y: %f GridX: %d, GridY: %d\n", mouseX, mouseY, gridX, gridY);
-                        }else if(event.button().button() == SDL_BUTTON_RIGHT){
+                        }else if(event.button().button() == SDL_BUTTON_RIGHT && !gameOver){
                             mouseX = event.motion().x();
                             mouseY = event.motion().y();
                             int gridX = (int)Math.floor(mouseY/TILE_SIZE)-1;
                             int gridY = (int)Math.floor(mouseX/TILE_SIZE);
                             if(gridX >= 0 && gridX < GRID_SIZE && gridY >= 0 && gridY < GRID_SIZE){
-
-                                if(viewGrid[gridX][gridY] == 0){
+                                if(viewGrid[gridX][gridY] == 0 && flagsLeft > 0){
                                     viewGrid[gridX][gridY] = type.FLAG.ordinal(); 
+                                    flagsLeft--;
                                 }else if(viewGrid[gridX][gridY] == type.FLAG.ordinal()){
                                     viewGrid[gridX][gridY] = 0;
+                                    flagsLeft++;
                                 }
                             }
                             //System.out.printf("right click x: %f, y: %f \n", mouseX, mouseY);
@@ -175,21 +190,25 @@ public class Main {
             flaggedMines = 0;
             for(int x = 0; x < GRID_SIZE; x++){
                 for(int y = 0; y < GRID_SIZE; y++){
+                    //draw textures
                     int texValue = (viewGrid[x][y] == 1) ? hiddenGrid[x][y] : type.BLANK.ordinal();
                     texValue = (viewGrid[x][y] == type.FLAG.ordinal()) ? viewGrid[x][y] : texValue;
                     SDL_RenderTexture(ren, textures[texValue], null, size);
 
+                    // win/lose check
                     if(texValue == type.MINE.ordinal()) quit = true;
                     if(hiddenGrid[x][y] != type.MINE.ordinal() && viewGrid[x][y] == 0) safeTiles++;
                     if(hiddenGrid[x][y] == type.MINE.ordinal() && viewGrid[x][y] == type.FLAG.ordinal()) flaggedMines++;
 
+                    //timer
                     String str = "Timer " + timer;
                     font.RenderString(16,8,str);
-                    //hello
+                    
+                    //flag Count
                     SDL_FRect pos = SDL_FRect.create();
                     pos.set(WIDTH-TILE_SIZE*2, 0, TILE_SIZE, TILE_SIZE);
                     SDL_RenderTexture(ren, textures[type.FLAG.ordinal()], null, pos);
-                    font.RenderString(WIDTH-TILE_SIZE+4, 8, "" + (15-flaggedMines));
+                    font.RenderString(WIDTH-TILE_SIZE+4, 8, "" + (flagsLeft));
 
                     size.x(size.x() + TILE_SIZE);
                     if(size.x() >= GRID_SIZE*TILE_SIZE){
@@ -200,7 +219,19 @@ public class Main {
             }
 
             if(flaggedMines == MINECOUNT || safeTiles == 0){
-                System.out.println("you win!");
+                timerStop = true;
+                gameOver = true;
+
+                SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
+                    SDL_FRect tmp = SDL_FRect.create();
+                    tmp.set(0,0,WIDTH,HEIGHT);
+                    SDL_SetRenderDrawColor(ren, (byte)255, (byte)255, (byte)255, (byte)100);
+                    SDL_RenderFillRect(ren, tmp);
+                SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_NONE);
+
+                font.scale = 3;
+                font.RenderString(WIDTH/2-(int)(font.charSize.w()*font.scale*3.5), HEIGHT/2-(font.charSize.h()*font.scale/2), "You Win!");
+                font.scale = 1;
             }
             SDL_RenderPresent(ren);
         }
