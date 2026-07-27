@@ -115,7 +115,7 @@ public class Main {
                         if(event.button().button() == SDL_BUTTON_LEFT){
                             mouseX = event.motion().x();
                             mouseY = event.motion().y();
-                            int gridX = (int)Math.floor(mouseY/TILE_SIZE);
+                            int gridX = (int)Math.floor(mouseY/TILE_SIZE)-1;
                             int gridY = (int)Math.floor(mouseX/TILE_SIZE);
                             if(gridX >= 0 && gridX < GRID_SIZE && gridY >= 0 && gridY < GRID_SIZE){
                                 if(!start) {
@@ -131,7 +131,7 @@ public class Main {
                                     viewGrid[gridX][gridY] = 0;
                                 }
                             }
-                            //System.out.printf("left click x: %f, y: %f \n", mouseX, mouseY);
+                            //System.out.printf("left click x: %f, y: %f GridX: %d, GridY: %d\n", mouseX, mouseY, gridX, gridY);
                         }else if(event.button().button() == SDL_BUTTON_RIGHT){
                             mouseX = event.motion().x();
                             mouseY = event.motion().y();
@@ -177,10 +177,10 @@ public class Main {
                     String str = "Timer " + timer;
                     font.RenderString(16,8,str);
 
-                    SDL_FRect pos = SDL_FRect.create(), cut = SDL_FRect.create();
+                    SDL_FRect pos = SDL_FRect.create();
                     pos.set(WIDTH-TILE_SIZE*2, 0, TILE_SIZE, TILE_SIZE);
-                    cut.set(-2,-2,TILE_SIZE-2, TILE_SIZE-2);
-                    SDL_RenderTexture(ren, textures[type.FLAG.ordinal()], cut, pos);
+                    SDL_RenderTexture(ren, textures[type.FLAG.ordinal()], null, pos);
+                    font.RenderString(WIDTH-TILE_SIZE+4, 8, "" + (15-flaggedMines));
 
                     size.x(size.x() + TILE_SIZE);
                     if(size.x() >= GRID_SIZE*TILE_SIZE){
