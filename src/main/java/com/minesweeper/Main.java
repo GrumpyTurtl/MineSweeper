@@ -43,6 +43,7 @@ public class Main {
 
     final static int GRID_SIZE = 16, TILE_SIZE = 32;
     final static int WIDTH = TILE_SIZE*GRID_SIZE, HEIGHT = TILE_SIZE*GRID_SIZE+32;
+    final static int CASCADING_TILE_SPEED = 20;
     static int MINECOUNT = 20;
     
     static PointerBuffer window, renderer;
@@ -102,10 +103,16 @@ public class Main {
         SDL_AddTimer(1000, callback, 0);
         
         //double deltaTime = 0;
+        long now = SDL_GetTicks();
+        long last;
+        long elapsedTime = 0;
+        int timeBuffer = 0;
   
         while(!quit){
             SDL_UpdateWindowSurface(win);
-            
+            last = now;
+            now = SDL_GetTicks();
+            elapsedTime = now - last;
             //deltaTime = (double)((now-last)*1000 / (double)SDL_GetPerformanceFrequency());
 
             while(SDL_PollEvent(event)){
@@ -135,7 +142,7 @@ public class Main {
                         }else if(event.button().button() == SDL_BUTTON_RIGHT){
                             mouseX = event.motion().x();
                             mouseY = event.motion().y();
-                            int gridX = (int)Math.floor(mouseY/TILE_SIZE);
+                            int gridX = (int)Math.floor(mouseY/TILE_SIZE)-1;
                             int gridY = (int)Math.floor(mouseX/TILE_SIZE);
                             if(gridX >= 0 && gridX < GRID_SIZE && gridY >= 0 && gridY < GRID_SIZE){
 
@@ -149,8 +156,10 @@ public class Main {
                         }
                     }
                 }
-            }   
-            if(SDL_GetPerformanceCounter() % 500 <= 10){
+            }  
+            timeBuffer += elapsedTime;
+            if(timeBuffer > CASCADING_TILE_SPEED){
+                timeBuffer = 0;
                 int initialLength = cascadeQueueX.size();
                 for(int i = 0; i < initialLength; i++){
                     cascadeTiles(cascadeQueueX.get(i), cascadeQueueY.get(i));
@@ -176,7 +185,7 @@ public class Main {
 
                     String str = "Timer " + timer;
                     font.RenderString(16,8,str);
-
+                    //hello
                     SDL_FRect pos = SDL_FRect.create();
                     pos.set(WIDTH-TILE_SIZE*2, 0, TILE_SIZE, TILE_SIZE);
                     SDL_RenderTexture(ren, textures[type.FLAG.ordinal()], null, pos);
