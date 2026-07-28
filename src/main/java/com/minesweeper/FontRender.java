@@ -12,7 +12,7 @@ import static org.lwjgl.sdl.SDLRender.*;
 class FontRender {
     SDL_Texture texture;
     long ren;
-    String[] format = {"ABCDEFGHIJKLM", "NPOQRSTUVWXYZ", "abcdefghijklm", "nopqrstuvwxyz", "1234567890"};
+    String[] format = {"ABCDEFGHIJKLM", "NOPQRSTUVWXYZ", "abcdefghijklm", "nopqrstuvwxyz", "1234567890"};
     SDL_Rect charSize;
     int xPad = 0, yPad = 0;
     int scale = 1;

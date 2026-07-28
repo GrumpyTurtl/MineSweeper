@@ -84,7 +84,7 @@ public class Main {
     final static int GRID_SIZE = 16, TILE_SIZE = 32;
     final static int WIDTH = TILE_SIZE*GRID_SIZE, HEIGHT = TILE_SIZE*GRID_SIZE+32;
     final static int CASCADING_TILE_SPEED = 20;
-    final static int MINECOUNT = 20;
+    final static int MINECOUNT = 1;
     
     static PointerBuffer window, renderer;
     static long ren, win;
@@ -123,7 +123,8 @@ public class Main {
         cascadeQueueX = new ArrayList<>();
         
         boolean quit = false;
-        boolean start = false;
+        boolean startTile = false;
+        boolean showMenu = true;
 
         timer = 0;
         timerStop = false;
@@ -134,7 +135,10 @@ public class Main {
         flagsLeft = MINECOUNT;
 
         
-        Button retryButton = new Button(WIDTH/2-64, HEIGHT/2+64, 128, 32, font, "Retry");
+        Button retryButton = new Button(WIDTH/2-64, HEIGHT/2-16, 128, 32, font, "Retry");
+        Button quitButton = new Button(WIDTH/2-64, HEIGHT/2+32, 128, 32, font, "Quit");
+        Button playButton = new Button(WIDTH/2-64, HEIGHT/2-16, 128, 32, font, "Play");
+        Button difficultyButton = new Button(WIDTH/2-64, HEIGHT/2+32, 128, 32, font, "Medium");
         SDL_FRect size = SDL_FRect.create();
         SDL_Event event = SDL_Event.calloc();
 
@@ -171,8 +175,8 @@ public class Main {
                             int gridX = (int)Math.floor(mouseY/TILE_SIZE)-1;
                             int gridY = (int)Math.floor(mouseX/TILE_SIZE);
                             if(gridX >= 0 && gridX < GRID_SIZE && gridY >= 0 && gridY < GRID_SIZE){
-                                if(!start) {
-                                    start = true;         
+                                if(!startTile) {
+                                    startTile = true;         
                                     fillMines(MINECOUNT, gridX, gridY);
                                     populateGrid();
                                 }
@@ -203,16 +207,27 @@ public class Main {
                         }else if (event.button().button() == SDL_BUTTON_LEFT && gameOver) {
                             mouseX = event.motion().x();
                             mouseY = event.motion().y();
-                            if (mouseX > retryButton.rect.x() && mouseX < retryButton.rect.x()+retryButton.rect.w()){
-                                if (mouseY > retryButton.rect.y() && mouseY < retryButton.rect.y()+retryButton.rect.h()){
-                                    game();
+                            Button[] buttonList = {quitButton, retryButton, playButton, difficultyButton};
+                            for(int i = 0; i < buttonList.length; i++){
+                                Button b = buttonList[i];
+                                if (mouseX > b.rect.x() && mouseX < b.rect.x()+b.rect.w()){
+                                    if (mouseY > b.rect.y() && mouseY < b.rect.y()+b.rect.h()){
+                                        if(i == 0){
+                                            quit = true;
+                                        }else if(i == 1){
+                                            game();
+                                        }else if(i == 2){
+                                            showMenu = false;
+                                        }else if(i == 3){
+                                            difficultyButton = new Button(WIDTH/2-64, HEIGHT/2+32, 128, 32, font, "Hard");
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }  
-
 
 
 
@@ -269,6 +284,22 @@ public class Main {
             }
 
 
+            if(showMenu){
+                SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
+                    SDL_FRect tmp = SDL_FRect.create();
+                    tmp.set(0,0,WIDTH,HEIGHT);
+                    SDL_SetRenderDrawColor(ren, (byte)255, (byte)255, (byte)255, (byte)100);
+                    SDL_RenderFillRect(ren, tmp);
+                SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_NONE);
+
+                font.scale = 3;
+                font.RenderString(WIDTH/2-(int)(font.charSize.w()*font.scale*5.5), HEIGHT/2-(font.charSize.h()*font.scale/2)-font.charSize.h()*font.scale, "Minesweeper");
+                font.scale = 1;
+
+                SDL_SetRenderDrawColor(ren, (byte)148, (byte)148, (byte)148, (byte)255);
+                playButton.RenderButton(ren);
+                difficultyButton.RenderButton(ren);
+            }
 
 
 
@@ -284,11 +315,12 @@ public class Main {
                 SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_NONE);
 
                 font.scale = 3;
-                font.RenderString(WIDTH/2-(int)(font.charSize.w()*font.scale*3.75), HEIGHT/2-(font.charSize.h()*font.scale/2), "You Win");
+                font.RenderString(WIDTH/2-(int)(font.charSize.w()*font.scale*3.5), HEIGHT/2-(font.charSize.h()*font.scale/2)-font.charSize.h()*font.scale, "You Win");
                 font.scale = 1;
 
                 SDL_SetRenderDrawColor(ren, (byte)148, (byte)148, (byte)148, (byte)255);
                 retryButton.RenderButton(ren);
+                quitButton.RenderButton(ren);
             }
 
             if(gameOver && flaggedMines != MINECOUNT && safeTiles != 0){
@@ -300,11 +332,12 @@ public class Main {
                 SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_NONE);
 
                 font.scale = 3;
-                font.RenderString(WIDTH/2-(int)(font.charSize.w()*font.scale*3.5), HEIGHT/2-(font.charSize.h()*font.scale/2), "You Lose");
+                font.RenderString(WIDTH/2-(int)(font.charSize.w()*font.scale*3.5), HEIGHT/2-(font.charSize.h()*font.scale/2)-font.charSize.h()*font.scale, "You Lose");
                 font.scale = 1;
 
                 SDL_SetRenderDrawColor(ren, (byte)148, (byte)148, (byte)148, (byte)255);
                 retryButton.RenderButton(ren);
+                quitButton.RenderButton(ren);
             }
             SDL_RenderPresent(ren);
         }
