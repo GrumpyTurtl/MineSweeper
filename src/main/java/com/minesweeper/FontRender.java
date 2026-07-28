@@ -6,7 +6,6 @@ import static org.lwjgl.sdl.SDLError.*;
 import static org.lwjgl.sdl.SDLIOStream.*;
 import static org.lwjgl.sdl.SDLPixels.*;
 import static org.lwjgl.sdl.SDLRender.*;
-import static org.lwjgl.system.MemoryUtil.NULL;
 
 
 
