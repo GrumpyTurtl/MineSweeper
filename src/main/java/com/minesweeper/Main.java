@@ -2,7 +2,7 @@ package com.minesweeper;
 
 import org.lwjgl.*;
 import org.lwjgl.sdl.*;
-
+import java.util.ArrayList;
 
 import static org.lwjgl.sdl.SDLError.*;
 import static org.lwjgl.sdl.SDLRender.*;
@@ -14,13 +14,7 @@ import static org.lwjgl.sdl.SDLInit.*;
 import static org.lwjgl.sdl.SDLMouse.*;
 import static org.lwjgl.sdl.SDLTimer.*;
 import static org.lwjgl.system.MemoryUtil.*;
-
-import java.io.File;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.ArrayList;
-
-
+import static org.lwjgl.sdl.SDLIOStream.*;
 
 class Button{
     SDL_FRect rect;
@@ -36,7 +30,7 @@ class Button{
 
         font = _font;
         offsetX = (_w/2)-(font.charSize.w()*(str.length()/2));
-        offsetY = font.charSize.h()/2;
+        offsetY = (_h/2) - (font.charSize.h()/2);
     }
 
     void RenderButton(long ren){
@@ -48,8 +42,27 @@ class Button{
 
 
 public class Main {
+    @SuppressWarnings("UnnecessaryReturnStatement")
     public static void main(String[] args) {
-        init();
+        SDL_Init(SDL_INIT_VIDEO);
+        window = PointerBuffer.allocateDirect(16);
+        renderer = PointerBuffer.allocateDirect(16);
+
+        if(!SDL_CreateWindowAndRenderer("Minesweeper", WIDTH, HEIGHT, NULL, window, renderer)){
+            System.out.println("Couldnt create window");
+        }
+        ren = renderer.get();
+        win = window.get();
+
+        SDL_Rect charSize = SDL_Rect.create().set(4,2,12,17);
+        font = new FontRender("assets/font.png", charSize, ren);
+        font.yPad = 3;
+        font.xPad = 0;
+
+        textures = makeTextures();
+
+        game();
+        return;
     }
 
 
@@ -94,36 +107,43 @@ public class Main {
     static boolean timerStop = false;
     static SDL_TimerCallbackI callback;
     static boolean gameOver = false;
-  
-
-    public static void init(){
-        SDL_Init(SDL_INIT_VIDEO);
-        window = PointerBuffer.allocateDirect(16);
-        renderer = PointerBuffer.allocateDirect(16);
 
 
-        if(!SDL_CreateWindowAndRenderer("Minesweeper", WIDTH, HEIGHT, NULL, window, renderer)){
-            System.out.println("Couldnt create window");
-        }
-        ren = renderer.get();
-        win = window.get();
+    static FontRender font;
+    static SDL_Texture[] textures;
 
-        SDL_Rect charSize = SDL_Rect.create().set(4,2,12,17);
-        FontRender font = new FontRender("font", charSize, ren);
-        font.yPad = 3;
-        font.xPad = 0;
+    public static void game(){
+
+        viewGrid = new int[GRID_SIZE][GRID_SIZE];
+        hiddenGrid = new int[GRID_SIZE][GRID_SIZE];
 
         viewGrid = fill(0, GRID_SIZE);
+
+        cascadeQueueY = new ArrayList<>();
+        cascadeQueueX = new ArrayList<>();
         
-        SDL_Texture[] textures = makeTextures();
-        SDL_FRect size = SDL_FRect.create();
-
-
-        SDL_Event event = SDL_Event.calloc();
         boolean quit = false;
         boolean start = false;
 
+        timer = 0;
+        timerStop = false;
+        gameOver = false;
+
+        safeTiles = 0;
+        flaggedMines = 0;
+        flagsLeft = MINECOUNT;
+
         
+        Button retryButton = new Button(WIDTH/2-64, HEIGHT/2+64, 128, 32, font, "Retry");
+        SDL_FRect size = SDL_FRect.create();
+        SDL_Event event = SDL_Event.calloc();
+
+        //time
+        long now = SDL_GetTicks();
+        long last;
+        long elapsedTime;
+        int timeBuffer = 0;
+
         callback = (userdata, timerID, interval) -> {
             if(!timerStop){
                 timer += 1;
@@ -134,18 +154,12 @@ public class Main {
 
         SDL_AddTimer(1000, callback, 0);
         
-        //double deltaTime = 0;
-        long now = SDL_GetTicks();
-        long last;
-        long elapsedTime = 0;
-        int timeBuffer = 0;
-  
+        //game loop
         while(!quit){
             SDL_UpdateWindowSurface(win);
             last = now;
             now = SDL_GetTicks();
             elapsedTime = now - last;
-            //deltaTime = (double)((now-last)*1000 / (double)SDL_GetPerformanceFrequency());
 
             while(SDL_PollEvent(event)){
                 switch (event.type()) {
@@ -170,7 +184,7 @@ public class Main {
                                     viewGrid[gridX][gridY] = 0;
                                 }
                             }
-                            //System.out.printf("left click x: %f, y: %f GridX: %d, GridY: %d\n", mouseX, mouseY, gridX, gridY);
+                            
                         }else if(event.button().button() == SDL_BUTTON_RIGHT && !gameOver){
                             mouseX = event.motion().x();
                             mouseY = event.motion().y();
@@ -185,11 +199,23 @@ public class Main {
                                     flagsLeft++;
                                 }
                             }
-                            //System.out.printf("right click x: %f, y: %f \n", mouseX, mouseY);
+                            
+                        }else if (event.button().button() == SDL_BUTTON_LEFT && gameOver) {
+                            mouseX = event.motion().x();
+                            mouseY = event.motion().y();
+                            if (mouseX > retryButton.rect.x() && mouseX < retryButton.rect.x()+retryButton.rect.w()){
+                                if (mouseY > retryButton.rect.y() && mouseY < retryButton.rect.y()+retryButton.rect.h()){
+                                    game();
+                                }
+                            }
                         }
                     }
                 }
             }  
+
+
+
+
             timeBuffer += elapsedTime;
             if(timeBuffer > CASCADING_TILE_SPEED){
                 timeBuffer = 0;
@@ -200,6 +226,9 @@ public class Main {
                 cascadeQueueX = removeRange(cascadeQueueX, 0, initialLength);
                 cascadeQueueY = removeRange(cascadeQueueY, 0, initialLength);
             }
+
+
+
 
             SDL_SetRenderDrawColor( ren, (byte)192, (byte)192, (byte)192, (byte)255);
             SDL_RenderClear(ren);
@@ -214,10 +243,13 @@ public class Main {
                     SDL_RenderTexture(ren, textures[texValue], null, size);
 
                     // win/lose check
-                    if(texValue == type.MINE.ordinal()) quit = true;
                     if(hiddenGrid[x][y] != type.MINE.ordinal() && viewGrid[x][y] == 0) safeTiles++;
                     if(hiddenGrid[x][y] == type.MINE.ordinal() && viewGrid[x][y] == type.FLAG.ordinal()) flaggedMines++;
 
+                    if (texValue == type.MINE.ordinal()) {
+                        timerStop = true;
+                        gameOver = true;
+                    }
                     //timer
                     String str = "Timer " + timer;
                     font.RenderString(16,8,str);
@@ -236,6 +268,10 @@ public class Main {
                 }
             }
 
+
+
+
+
             if(flaggedMines == MINECOUNT || safeTiles == 0){
                 timerStop = true;
                 gameOver = true;
@@ -248,11 +284,33 @@ public class Main {
                 SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_NONE);
 
                 font.scale = 3;
-                font.RenderString(WIDTH/2-(int)(font.charSize.w()*font.scale*3.5), HEIGHT/2-(font.charSize.h()*font.scale/2), "You Win!");
+                font.RenderString(WIDTH/2-(int)(font.charSize.w()*font.scale*3.75), HEIGHT/2-(font.charSize.h()*font.scale/2), "You Win");
                 font.scale = 1;
+
+                SDL_SetRenderDrawColor(ren, (byte)148, (byte)148, (byte)148, (byte)255);
+                retryButton.RenderButton(ren);
+            }
+
+            if(gameOver && flaggedMines != MINECOUNT && safeTiles != 0){
+                SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
+                    SDL_FRect tmp = SDL_FRect.create();
+                    tmp.set(0,0,WIDTH,HEIGHT);
+                    SDL_SetRenderDrawColor(ren, (byte)255, (byte)255, (byte)255, (byte)100);
+                    SDL_RenderFillRect(ren, tmp);
+                SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_NONE);
+
+                font.scale = 3;
+                font.RenderString(WIDTH/2-(int)(font.charSize.w()*font.scale*3.5), HEIGHT/2-(font.charSize.h()*font.scale/2), "You Lose");
+                font.scale = 1;
+
+                SDL_SetRenderDrawColor(ren, (byte)148, (byte)148, (byte)148, (byte)255);
+                retryButton.RenderButton(ren);
             }
             SDL_RenderPresent(ren);
         }
+
+
+
 
         for(SDL_Texture tex: textures){
             SDL_DestroyTexture(tex);
@@ -268,27 +326,30 @@ public class Main {
             String name = imgs[i];
             SDL_Texture texture;
             SDL_Surface bmp;
-            try{
-                URI url = Main.class.getResource("/" + name + ".bmp").toURI();
-                bmp = SDL_LoadBMP(new File(url).getAbsolutePath());
 
-                if (bmp == null) {
-                    System.out.println("Failed to load BMP: " + SDL_GetError());
-                    continue;
-                }             
+            long io = SDL_IOFromFile("assets/" + name + ".bmp", "rb");
 
-                texture = SDL_CreateTextureFromSurface(ren, bmp);
-                SDL_DestroySurface(bmp);
-
-                if (texture == null) {
-                    System.out.println("Failed to Load Texture: " + SDL_GetError());
-                }else{
-                    out[i] = texture;
-                }       
-
-            }catch(URISyntaxException e){
-                System.out.println("error loading Texture: " + e);
+            if (io == 0L) {
+                System.out.println("Could not open file: " + "assets/" + name + ".bmp");
+                System.out.println(SDL_GetError());
+                continue;
             }
+
+            bmp = SDL_LoadBMP_IO(io, true);
+
+            if (bmp == null) {
+                System.out.println("Failed to load BMP: " + SDL_GetError());
+                continue;
+            }             
+
+            texture = SDL_CreateTextureFromSurface(ren, bmp);
+            SDL_DestroySurface(bmp);
+
+            if (texture == null) {
+                System.out.println("Failed to Load Texture: " + SDL_GetError());
+            }else{
+                out[i] = texture;
+            }       
         }
 
         return out;
@@ -362,32 +423,9 @@ public class Main {
         return out;
     }
 
-    /*  static void printIntArray(int[][] a){
-        for(int[] b: a){
-            for(int n: b){
-                System.out.printf("%d ", n);
-            }
-            System.out.printf("\n");
-        }
-        System.out.printf("\n \n");
-    }*/
-
     static void cascadeTiles(int x, int y){
         viewGrid[x][y] = 1;
-        /*int mineCount = 0;
-        for(int y2 = y-1; y2 <= (y+1); y2++){
-            for(int x2 = x-1; x2 <= (x+1); x2++){
-                if(x2 >= 0 && x2 < GRID_SIZE && y2 >= 0 && y2 < GRID_SIZE ){
-                    if(x2 == x && y2 == y) continue;
-
-                    if(hiddenGrid[x2][y2] == type.MINE.ordinal()){
-                        mineCount++;
-                    }
-                    
-                }
-            }
-        }*/
-       int mineCount = checkSurrounding(x,y);
+        int mineCount = checkSurrounding(x,y);
         if(mineCount == 0){
             int[] xTiles = {x-1, x, x+1, x-1, x+1, x-1, x, x+1};
             int[] yTiles = {y-1, y-1, y-1, y, y, y+1, y+1, y+1};
