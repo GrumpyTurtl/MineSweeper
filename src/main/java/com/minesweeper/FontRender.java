@@ -61,7 +61,7 @@ class FontRender {
                 penY += charSize.h()*scale;
             }else{
                 if(RenderChar(penX, penY, s.charAt(i))){
-                    penX += charSize.w()*scale/2;
+                    penX += charSize.w()*scale;
                 }else{
                     penX += charSize.w()*scale;
                 }

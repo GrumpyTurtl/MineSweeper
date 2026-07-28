@@ -23,8 +23,26 @@ import java.util.ArrayList;
 
 
 class Button{
-    Button(int x, int y, int w, int h, String str){
+    SDL_FRect rect;
+    String buttonText;
+    FontRender font;
+    int offsetX, offsetY;
 
+    Button(int _x, int _y, int _w, int _h, FontRender _font,  String str){
+        buttonText = str;
+
+        rect = SDL_FRect.create();
+        rect.set(_x,_y,_w,_h);
+
+        font = _font;
+        offsetX = (_w/2)-(font.charSize.w()*(str.length()/2));
+        offsetY = font.charSize.h()/2;
+    }
+
+    void RenderButton(long ren){
+        //replace with dynamic image based button?
+        SDL_RenderFillRect(ren, rect);
+        font.RenderString((int)(rect.x()+offsetX), (int)(rect.y()+offsetY), buttonText);
     }
 }
 
