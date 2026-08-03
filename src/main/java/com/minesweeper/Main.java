@@ -107,6 +107,7 @@ public class Main {
     static boolean timerStop = false;
     static SDL_TimerCallbackI callback;
     static boolean gameOver = false;
+    static byte difficulty = 1;
 
 
     static FontRender font;
@@ -142,6 +143,9 @@ public class Main {
         SDL_FRect size = SDL_FRect.create();
         SDL_Event event = SDL_Event.calloc();
 
+        String[] difficulties = {"Easy", "Medium", "Hard"};
+
+
         //time
         long now = SDL_GetTicks();
         long last;
@@ -156,7 +160,7 @@ public class Main {
             return 0; 
         };
 
-        SDL_AddTimer(1000, callback, 0);
+        
         
         //game loop
         while(!quit){
@@ -169,7 +173,7 @@ public class Main {
                 switch (event.type()) {
                     case SDL_EVENT_QUIT -> quit = true;
                     case SDL_EVENT_MOUSE_BUTTON_DOWN -> {
-                        if(event.button().button() == SDL_BUTTON_LEFT && !gameOver){
+                        if(event.button().button() == SDL_BUTTON_LEFT && !gameOver  && !showMenu){
                             mouseX = event.motion().x();
                             mouseY = event.motion().y();
                             int gridX = (int)Math.floor(mouseY/TILE_SIZE)-1;
@@ -189,7 +193,7 @@ public class Main {
                                 }
                             }
                             
-                        }else if(event.button().button() == SDL_BUTTON_RIGHT && !gameOver){
+                        }else if(event.button().button() == SDL_BUTTON_RIGHT && !gameOver && !showMenu){
                             mouseX = event.motion().x();
                             mouseY = event.motion().y();
                             int gridX = (int)Math.floor(mouseY/TILE_SIZE)-1;
@@ -204,7 +208,7 @@ public class Main {
                                 }
                             }
                             
-                        }else if (event.button().button() == SDL_BUTTON_LEFT && gameOver) {
+                        }else if (event.button().button() == SDL_BUTTON_LEFT && (gameOver || showMenu)) {
                             mouseX = event.motion().x();
                             mouseY = event.motion().y();
                             Button[] buttonList = {quitButton, retryButton, playButton, difficultyButton};
@@ -212,14 +216,26 @@ public class Main {
                                 Button b = buttonList[i];
                                 if (mouseX > b.rect.x() && mouseX < b.rect.x()+b.rect.w()){
                                     if (mouseY > b.rect.y() && mouseY < b.rect.y()+b.rect.h()){
-                                        if(i == 0){
-                                            quit = true;
-                                        }else if(i == 1){
-                                            game();
-                                        }else if(i == 2){
-                                            showMenu = false;
-                                        }else if(i == 3){
-                                            difficultyButton = new Button(WIDTH/2-64, HEIGHT/2+32, 128, 32, font, "Hard");
+                                        switch (i) {
+                                            case 0:
+                                                quit = true;
+                                                System.out.println("quit");
+                                                break;
+                                            case 1:
+                                                game();
+                                                System.out.println("rety");
+                                                break;
+                                            case 2:
+                                                showMenu = false;
+                                                SDL_AddTimer(1000, callback, 0);
+                                                gameOver = false;
+                                                System.out.println("play");
+                                                break;
+                                            case 3:
+                                                difficulty++;
+                                                if(difficulty > 2) difficulty = 0;
+                                                System.out.println("difficulty");
+                                                break;
                                         }
                                     }
                                 }
@@ -295,6 +311,11 @@ public class Main {
                 font.scale = 3;
                 font.RenderString(WIDTH/2-(int)(font.charSize.w()*font.scale*5.5), HEIGHT/2-(font.charSize.h()*font.scale/2)-font.charSize.h()*font.scale, "Minesweeper");
                 font.scale = 1;
+
+
+                
+                difficultyButton.buttonText = difficulties[difficulty];
+                
 
                 SDL_SetRenderDrawColor(ren, (byte)148, (byte)148, (byte)148, (byte)255);
                 playButton.RenderButton(ren);
