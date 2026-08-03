@@ -84,7 +84,7 @@ public class Main {
     final static int GRID_SIZE = 16, TILE_SIZE = 32;
     final static int WIDTH = TILE_SIZE*GRID_SIZE, HEIGHT = TILE_SIZE*GRID_SIZE+32;
     final static int CASCADING_TILE_SPEED = 20;
-    final static int MINECOUNT = 1;
+    static int MINECOUNT = 1;
     
     static PointerBuffer window, renderer;
     static long ren, win;
@@ -133,7 +133,6 @@ public class Main {
 
         safeTiles = 0;
         flaggedMines = 0;
-        flagsLeft = MINECOUNT;
 
         
         Button retryButton = new Button(WIDTH/2-64, HEIGHT/2-16, 128, 32, font, "Retry");
@@ -216,26 +215,31 @@ public class Main {
                                 Button b = buttonList[i];
                                 if (mouseX > b.rect.x() && mouseX < b.rect.x()+b.rect.w()){
                                     if (mouseY > b.rect.y() && mouseY < b.rect.y()+b.rect.h()){
-                                        switch (i) {
-                                            case 0:
-                                                quit = true;
-                                                System.out.println("quit");
-                                                break;
-                                            case 1:
-                                                game();
-                                                System.out.println("rety");
-                                                break;
-                                            case 2:
-                                                showMenu = false;
-                                                SDL_AddTimer(1000, callback, 0);
-                                                gameOver = false;
-                                                System.out.println("play");
-                                                break;
-                                            case 3:
-                                                difficulty++;
-                                                if(difficulty > 2) difficulty = 0;
-                                                System.out.println("difficulty");
-                                                break;
+                                        if(!showMenu && gameOver){
+                                            switch (i) {
+                                                case 0:
+                                                    quit = true;
+                                                    break;
+                                                case 1:
+                                                    game();
+                                                    break;
+                                            }
+                                        }
+                                         if(showMenu){
+                                            switch (i) {
+                                                case 2:
+                                                    showMenu = false;
+                                                    SDL_AddTimer(1000, callback, 0);
+                                                    gameOver = false;
+                                                    MINECOUNT = 10*(difficulty+1);
+                                                    flagsLeft = MINECOUNT;
+
+                                                    break;
+                                                case 3:
+                                                    difficulty++;
+                                                    if(difficulty > 2) difficulty = 0;
+                                                    break;
+                                            }
                                         }
                                     }
                                 }
