@@ -231,7 +231,8 @@ public class Main {
                                                     showMenu = false;
                                                     SDL_AddTimer(1000, callback, 0);
                                                     gameOver = false;
-                                                    MINECOUNT = 10*(difficulty+1);
+                                                    MINECOUNT = (Integer)Math.round((GRID_SIZE*GRID_SIZE)*(0.25*(difficulty+1)));
+                                                    System.out.println(MINECOUNT);
                                                     flagsLeft = MINECOUNT;
 
                                                     break;
