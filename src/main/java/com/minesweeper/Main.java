@@ -97,7 +97,7 @@ public class Main {
 
     static int safeTiles = 0;
     static int flaggedMines = 0;
-    static int flagsLeft = MINECOUNT;
+    static int flagsLeft;
 
     static ArrayList<Integer> cascadeQueueX = new ArrayList<>();
     static ArrayList<Integer> cascadeQueueY = new ArrayList<>();
@@ -231,8 +231,17 @@ public class Main {
                                                     showMenu = false;
                                                     SDL_AddTimer(1000, callback, 0);
                                                     gameOver = false;
-                                                    MINECOUNT = (Integer)Math.round((GRID_SIZE*GRID_SIZE)*(0.25*(difficulty+1)));
-                                                    System.out.println(MINECOUNT);
+                                                    switch(difficulty){
+                                                        case 0:
+                                                            MINECOUNT = 15;
+                                                            break;
+                                                        case 1:
+                                                            MINECOUNT = 25;
+                                                            break;
+                                                        case 2:
+                                                            MINECOUNT = 35;
+                                                            break;
+                                                    }
                                                     flagsLeft = MINECOUNT;
 
                                                     break;
